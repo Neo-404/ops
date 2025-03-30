@@ -1,0 +1,72 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "vnet1Name": {
+            "type": "string",
+            "defaultValue": "VNet1",
+            "metadata": {
+                "description": "Name of the first Virtual Network."
+            }
+        },
+        "vnet1Id": {
+            "type": "string",
+            "metadata": {
+                "description": "Resource ID of the first Virtual Network."
+            }
+        },
+        "vnet2Name": {
+            "type": "string",
+            "defaultValue": "VNet2",
+            "metadata": {
+                "description": "Name of the second Virtual Network."
+            }
+        },
+        "vnet2Id": {
+            "type": "string",
+            "metadata": {
+                "description": "Resource ID of the second Virtual Network."
+            }
+        },
+        "location": {
+            "type": "string",
+            "defaultValue": "East US",
+            "metadata": {
+                "description": "The location of the resources."
+            }
+        }
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+            "apiVersion": "2020-11-01",
+            "name": "[concat(parameters('vnet1Name'), '/PeeringTo', parameters('vnet2Name'))]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "allowVirtualNetworkAccess": true,
+                "allowForwardedTraffic": true,
+                "allowGatewayTransit": false,
+                "useRemoteGateways": false,
+                "remoteVirtualNetwork": {
+                    "id": "[parameters('vnet2Id')]"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+            "apiVersion": "2020-11-01",
+            "name": "[concat(parameters('vnet2Name'), '/PeeringTo', parameters('vnet1Name'))]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "allowVirtualNetworkAccess": true,
+                "allowForwardedTraffic": true,
+                "allowGatewayTransit": false,
+                "useRemoteGateways": false,
+                "remoteVirtualNetwork": {
+                    "id": "[parameters('vnet1Id')]"
+                }
+            }
+        }
+    ],
+    "outputs": {}
+}

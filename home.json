@@ -1,0 +1,354 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "VirtualNetwork": {
+            "type": "string",
+            "metadata": {
+                "description": "description"
+            },"defaultValue":"Virtual Network"
+        },
+        "WebtierSubnet": {
+            "type": "string",
+            "metadata": {
+                "description": "description"
+            },"defaultValue": "Web tier subnet"
+        },
+        "ApplicationtierSubnet": {
+            "type": "string",
+            "metadata": {
+                "description": "description"
+            },"defaultValue": "Application tier subnet"
+        },
+        "DatabasetierSubnet": {
+            "type": "string",
+            "metadata": {
+                "description": "description"
+            },"defaultValue": "Database tier subnet"
+        },
+        "WebServersASG": {
+            "type": "string",
+            "metadata": {
+                "description": "description"
+            },"defaultValue": "Web Servers ASG"
+        },
+        "ApplicationServersASG": {
+            "type": "string",
+            "metadata": {
+                "description": "description"
+            },"defaultValue": "Application Servers ASG"
+        },
+        "DatabaseServersASG": {
+            "type": "string",
+            "metadata": {
+                "description": "description"
+            },"defaultValue": "Database Servers ASG"
+        },
+        "VnetNSG": {
+            "type": "string",
+            "metadata": {
+                "description": "description"
+            },"defaultValue": "Vnet NSG"
+        },
+        "LoadBalancer": {
+            "type": "string",
+            "metadata": {
+                "description": "description"
+            },"defaultValue": "Load Balancer"
+        },
+        "HTTPRule": {
+            "type": "string",
+            "metadata": {
+                "description": "description"
+            },"defaultValue": "HTTP Rule"
+        },
+        "HTTPSRule": {
+            "type": "string",
+            "metadata": {
+                "description": "description"
+            },"defaultValue": "HTTPS Rule"
+        }
+    },
+    "functions": [],
+    "variables": {
+        "WebSubnet": "10.0.1.0/24",
+        "ApplicationSubnet": "10.0.2.0/24",
+        "DatabaseSubnet": "10.0.3.0/24",
+        "Vnet": "10.0.0.0/16"
+    },
+    "resources": [
+        {
+            "name": "[parameters('VnetNSG')]",
+            "type": "Microsoft.Network/networkSecurityGroups",
+            "apiVersion": "2024-03-01",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "securityRules": [
+                    {
+                        "name": "Allow HTTP(80)",
+                        "properties": {
+                            "description": "Allow HTTP traffic from the internet to the web tier ASG",
+                            "protocol": "Tcp",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "80",
+                            "sourceAddressPrefix": "*",
+                            "destinationAddressPrefix": "[parameters('WebServersASG')]",
+                            "access": "Allow",
+                            "priority": 100,
+                            "direction": "Inbound"
+                        }
+                    },
+                     {
+                        "name": "Allow https(443)",
+                        "properties": {
+                            "description": "Allow HTTPS traffic from the internet to the web tier ASG",
+                            "protocol": "Tcp",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "443",
+                            "sourceAddressPrefix": "*",
+                            "destinationAddressPrefix": "[parameters('WebServersASG')]",
+                            "access": "Allow",
+                            "priority": 101,
+                            "direction": "Inbound"
+                        }
+                    },
+                    {
+                        "name": "Allow HTTPS(443)from web teir ASG",
+                        "properties": {
+                            "description": "Allow HTTPS traffic from the web tier ASG to the application tier ASG",
+                            "protocol": "Tcp",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "443",
+                            "sourceAddressPrefix": "[parameters('WebServersASG')]",
+                            "destinationAddressPrefix": "[parameters('ApplicationServersASG')]",
+                            "access": "Allow",
+                            "priority": 102,
+                            "direction": "Inbound"
+                        }
+                    },
+                    {
+                        "name": "Allow SQL Server(1433)",
+                        "properties": {
+                            "description": "Allow SQL Server traffic from the application tier ASG to the database tier ASG",
+                            "protocol": "Tcp",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "1433",
+                            "sourceAddressPrefix": "[parameters('ApplicationServersASG')]",
+                            "destinationAddressPrefix": "[parameters('DatabaseServersASG')]",
+                            "access": "Allow",
+                            "priority": 103,
+                            "direction": "Inbound"
+                        }
+                    },
+                    {
+                        "name": "Deny all",
+                        "properties": {
+                            "description": "Deny all other inbound traffic",
+                            "protocol": "Tcp",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "*",
+                            "sourceAddressPrefix": "*",
+                            "destinationAddressPrefix": "*",
+                            "access": "Deny",
+                            "priority": 104,
+                            "direction": "Inbound"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "name": "[parameters('WebServersASG')]",
+            "type": "Microsoft.Network/applicationSecurityGroups",
+            "apiVersion": "2024-03-01",
+            "location": "[resourceGroup().location]",
+            "tags": {},
+            "properties": {}
+        },
+        {
+            "name": "[parameters('ApplicationServersASG')]",
+            "type": "Microsoft.Network/applicationSecurityGroups",
+            "apiVersion": "2024-03-01",
+            "location": "[resourceGroup().location]",
+            "tags": {},
+            "properties": {}
+        },
+        {
+            "name": "[parameters('DatabaseServersASG')]",
+            "type": "Microsoft.Network/applicationSecurityGroups",
+            "apiVersion": "2024-03-01",
+            "location": "[resourceGroup().location]",
+            "tags": {},
+            "properties": {}
+        },
+         {
+            "name": "[parameters('VirtualNetwork')]",
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2024-03-01",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "displayName": "[parameters('VirtualNetwork')]"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/networkSecurityGroups',parameters('VnetNSG'))]"
+            ],
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "[variables('Vnet')]"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "[parameters('WebtierSubnet')]",
+                        "properties": {
+                            "addressPrefix": "[variables('WebSubnet')]",
+                            "networkSecurityGroup": {
+                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('VnetNSG'))]"
+                            }
+                        }
+                    },
+                    {
+                        "name": "[parameters('ApplicationtierSubnet')]",
+                        "properties": {
+                            "addressPrefix": "[variables('ApplicationSubnet')]",
+                            "networkSecurityGroup": {
+                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('VnetNSG'))]"
+                            }
+                        }
+                    },
+                     {
+                        "name": "[parameters('DatabasetierSubnet')]",
+                        "properties": {
+                            "addressPrefix": "[variables('DatabaseSubnet')]",
+                            "networkSecurityGroup": {
+                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('VnetNSG'))]"
+                            }
+                        }
+                    }
+                
+                ]
+            }
+         },
+         {
+            "name": "[parameters('LoadBalancer')]",
+            "type": "Microsoft.Network/loadBalancers",
+            "apiVersion": "2024-03-01",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/publicIPAddresses', 'WebTierPublicIP')]"
+            ],
+            "properties": {
+                "frontendIPConfigurations": [
+                    {
+                        "name": "loadBalancerFrontEnd1",
+                        "properties": {
+                            "publicIPAddress": {
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses','WebTierPublicIP')]"
+                            }
+                        }
+                    }
+                ],
+                "backendAddressPools": [
+                    {
+                        "name": "loadBalancerBackEndPool1"
+                    }
+                ],
+                "inboundNatRules": [
+                    {
+                        "name": "natRule1",
+                        "properties": {
+                            "frontendIPConfiguration": {
+                                "id": "[resourceId('Microsoft.Network/loadBalancers/frontendIPConfigurations', 'loadBalancerExternal1', 'loadBalancerFrontEnd1')]"
+                            },
+                            "protocol": "Tcp",
+                            "frontendPort": 50001,
+                            "backendPort": 3389,
+                            "enableFloatingIP": false
+                        }
+                    }
+                ],
+                "loadBalancingRules": [
+                    {
+                        "name": "[parameters('HTTPRule')]",
+                        "properties": {
+                            "frontendIPConfiguration": {
+                                "id": "[resourceId('Microsoft.Network/loadBalancers/frontendIPConfigurations', 'publicFrontend')]"
+                            },
+                            "backendAddressPool": {
+                                "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', 'webBackendPool')]"
+                            },
+                            "probe": {
+                                "id": "[resourceId('Microsoft.Network/loadBalancers/healthprobes','HTTPProbe')]"
+                            
+                            },
+                            "protocol": "Tcp",
+                            "frontendPort": 80,
+                            "backendPort": 80
+                            
+                        }
+                    },
+                      {
+                        "name": "[parameters('HTTPSRule')]",
+                        "properties": {
+                            "frontendIPConfiguration": {
+                                "id": "[resourceId('Microsoft.Network/loadBalancers/frontendIPConfigurations', 'publicFrontend')]"
+                            },
+                            "backendAddressPool": {
+                                "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', 'webBackendPool')]"
+                            },
+                            "probe": {
+                                "id": "[resourceId('Microsoft.Network/loadBalancers/healthprobes','HTTPSProbe')]"
+                            
+                            },
+                            "protocol": "Tcp",
+                            "frontendPort": 443,
+                            "backendPort": 443
+                            
+                        }
+                    }
+
+                ],
+                   "healthProbes": [
+                    {
+                        "name": "HTTPProbe",
+                        "properties": {
+                            "protocol": "Http",
+                            "port": 80,
+                            "requestPath": "/healthcheck",
+                            "intervalInSeconds": 30,
+                            "numberOfProbes": 2
+                        }
+                    },
+                    {
+                        "name": "HTTPSProbe",
+                        "properties": {
+                            "protocol": "Https",
+                            "port": 443,
+                            "requestPath": "/healthcheck",
+                            "intervalInSeconds": 30,
+                            "numberOfProbes": 2
+                        }
+                    }
+                    
+                ]
+                
+            }
+         },
+          {
+        "type": "Microsoft.Network/publicIPAddresses",
+        "apiVersion": "2021-05-01",
+        "location": "[resourceGroup().location]",
+        "properties": {
+          "publicIPAllocationMethod": "Static",
+          "dnsSettings": {
+            "domainNameLabel": "webtierpublicip"
+          }
+        },
+        "name": "WebTierPublicIP",
+        "dependsOn": []
+      }
+         
+    ],
+    "outputs": {}
+}
